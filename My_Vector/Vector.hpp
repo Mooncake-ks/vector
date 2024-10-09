@@ -8,6 +8,7 @@ class Vector
 public:
 	Vector();
 	Vector(const size_t size, const T& value = T(), const Alloc& alloc = Alloc());
+	Vector(const Vector<T, Alloc>& copy_v);
 	~Vector();
 
 
@@ -23,8 +24,11 @@ public:
 	bool empty() const;
 
 	T& operator[](const size_t index);
-	Vector<T, Alloc>& operator=(const Vector<T, Alloc>& other);
+	Vector<T, Alloc> operator +(const Vector<T, Alloc>& other);
+	Vector<T, Alloc>& operator =(const Vector<T, Alloc>& other);
 	T& at(const size_t index);
+
+	
 
 private:
 	T* arr;
@@ -47,6 +51,19 @@ Vector<T, Alloc>::Vector(const size_t size, const T& value, const Alloc& alloc) 
 		alloc_traits::construct(m_allocator, arr + i, value);
 		//m_allocator.construct(arr + i, value);
 	}
+	m_size = size;
+}
+
+template<typename T, typename Alloc>
+Vector<T, Alloc>::Vector(const Vector<T, Alloc>& copy_v): m_allocator{alloc_traits::select_on_container_copy_construction(copy_v.m_allocator)}
+{
+	reserve(copy_v.m_size);
+	for (size_t i = 0; i < copy_v.m_size; ++i)
+	{
+		alloc_traits::construct(m_allocator, arr + i, *(copy_v.arr+i));
+		//m_allocator.construct(arr + i, value);
+	}
+	this->m_size = copy_v.m_size;
 }
 
 template<typename T, typename Alloc>
@@ -63,9 +80,12 @@ Vector<T, Alloc>::~Vector()
 	//delete[] reinterpret_cast<char*>(arr);
 }
 
+
+//Универсальная ссылка todo
 template<typename T, typename Alloc>
 void Vector<T, Alloc>::push_back(const T& value)
 {
+	if (m_size == 0 && m_cap == 0) reserve(1);
 	if (m_size == m_cap) reserve(m_cap * 2);
 	alloc_traits::construct(m_allocator, arr + m_size, value);
 	//m_allocator.construct(arr + m_size, value);
@@ -166,15 +186,31 @@ T& Vector<T, Alloc>::operator[](const size_t index)
 }
 
 template<typename T, typename Alloc>
+Vector<T, Alloc> Vector<T, Alloc>::operator+(const Vector<T, Alloc>& other)
+{
+	Vector<T,Alloc> newVector = Vector(this->m_size > other.m_size ? this : other);
+	Vector<T, Alloc>& ptrMinVector = this->m_size < other.m_size ? this : other;
+	
+
+	for (size_t i = 0; i < ptrMinVector.m_size; i++)
+	{
+		*(newVector.arr + i) = *(ptrMinVector.arr + i);
+	}
+
+	return Vector<T, Alloc>();
+}
+
+
+template<typename T, typename Alloc>
 Vector<T, Alloc>& Vector<T, Alloc>::operator=(const Vector<T, Alloc>& other)
 {
 	for (size_t i = 0; i < m_size; ++i)
 	{
 		alloc_traits::destroy(m_allocator, arr + i);
 	}
-	alloc_traits::deallocate(arr);
+	alloc_traits::deallocate(m_allocator, arr, m_cap);
 
-	if (alloc_traits::propagate_on_container_copy_assignmment::value && m_allocator != other.m_allocator)
+	if (alloc_traits::propagate_on_container_copy_assignment::value && m_allocator != other.m_allocator)
 	{
 		m_allocator = other.m_allocator;
 	}
@@ -184,13 +220,25 @@ Vector<T, Alloc>& Vector<T, Alloc>::operator=(const Vector<T, Alloc>& other)
 		reserve(other.m_size);
 		for (; pos < other.m_size; ++pos)
 		{
-			alloc_traits::construct(m_allocator, arr + pos, other[pos]);
+			
+			alloc_traits::construct(m_allocator, arr + pos , other.arr[pos]);
 		}
 	}
 	catch (const std::exception&)
 	{
+		//Очистка выделенной памяти.
+		for (size_t i{ 0 }; i < pos; ++i)
+		{
+			alloc_traits::destroy(m_allocator, arr+i);
+			//m_allocator.destroy(temp_arr + i);
+			//(temp_arr + pos)->~T();
+		}
 
+		alloc_traits::deallocate(m_allocator, arr ,m_cap);
+		
+		throw;
 	}
+
 }
 
 template<typename T, typename Alloc>
