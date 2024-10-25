@@ -188,16 +188,19 @@ T& Vector<T, Alloc>::operator[](const size_t index)
 template<typename T, typename Alloc>
 Vector<T, Alloc> Vector<T, Alloc>::operator+(const Vector<T, Alloc>& other)
 {
-	Vector<T,Alloc> newVector = Vector(this->m_size > other.m_size ? this : other);
-	Vector<T, Alloc>& ptrMinVector = this->m_size < other.m_size ? this : other;
-	
-
-	for (size_t i = 0; i < ptrMinVector.m_size; i++)
-	{
-		*(newVector.arr + i) = *(ptrMinVector.arr + i);
+	if (m_size >= other.m_size) {
+		Vector<T, Alloc> tmp(*this);
+		for (size_t i = 0; i < other.m_size; ++i) {
+			tmp.at(i) += other.arr[i];
+		}
+		return tmp;
 	}
 
-	return Vector<T, Alloc>();
+	Vector<T, Alloc> tmp(other);
+	for (size_t i = 0; i < m_size; ++i) {
+		tmp.at(i) += this->arr[i];
+	}
+	return tmp;
 }
 
 
